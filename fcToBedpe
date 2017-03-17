@@ -1,0 +1,74 @@
+#!/usr/bin/python
+
+import sys, argparse, textwrap
+
+parser = argparse.ArgumentParser(
+    formatter_class=argparse.RawDescriptionHelpFormatter,
+    description=textwrap.dedent('''\
+
+Converts FusionCatcher output to bedpe; retains one breakpoint per gene pair
+
+        '''))
+group = parser.add_argument_group('required arguments')
+group.add_argument('inputfile', type=str, help='FusionCatcher file final-list_candidate-fusion-genes.txt')
+
+
+class Breakpoint(object):
+  def __init__(self, line):
+    fields = (line).split('\t')
+#    Gene_1_symbol = fields[0]
+#    Gene_2_symbol = fields[1]
+#    Fusion_description = fields[2]
+#    Counts_of_common_mapping_reads = fields[3]
+#    Spanning_pairs = fields[4]
+#    Spanning_unique_reads = fields[5]
+#    Longest_anchor_found = fields[6]
+#    Fusion_finding_method = fields[7]
+#    Fusion_point_for_gene_1 = fields[8]
+#    Fusion_point_for_gene_2 = fields[9]
+#    Gene_1_id = fields[10]
+#    Gene_2_id = fields[11]
+#    Exon_1_id = fields[12]
+#    Exon_2_id = fields[13]
+#    Fusion_sequence = fields[14]
+#    Predicted_effect = fields[15]
+#    Predicted_fused_transcripts = fields[16]
+#    Predicted_fused_proteins = fields[17]
+    chrom1, end1, strand1 = fields[8].split(':')
+    chrom2, end2, strand2 = fields[9].split(':')
+    start1 = int(end1) - 1
+    start2 = int(end2) - 1
+    self.feature= ('-').join(fields[10:12])
+    self.score  = int(fields[5]) # spanning unique reads 
+
+    self.outString = ('\t').join(str(i) for i in [chrom1, str(start1), end1, chrom2, start2, str(end2), self.feature, str(self.score), strand1, strand2])
+  def gotFeature(self, bplist):
+    """Check if breakpoint is already in the list, if so, replace if the current score is higer. Otherwise add."""
+    found = False
+    for bp in bplist:
+        if bp.feature == self.feature:
+            found = True
+            if bp.score < self.score:
+                bp.score = self.score
+                bp.outString = self.outString
+    if not found:
+        bplist.append(self)
+    return bplist
+
+if len(sys.argv)==1:
+    parser.print_help()
+    sys.exit(1)
+args = parser.parse_args()
+
+# Main
+scores = []
+with open(args.inputfile,'r') as f:
+    for line in f:
+        if line.startswith('Gene_1_symbol'):
+            continue
+        line = line.strip()
+        bp = Breakpoint(line)
+        scores = bp.gotFeature(scores)
+
+for bp in scores:
+    print bp.outString

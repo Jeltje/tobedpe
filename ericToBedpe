@@ -1,0 +1,53 @@
+#!/usr/bin/python
+
+import sys, argparse, textwrap
+
+parser = argparse.ArgumentParser(
+    formatter_class=argparse.RawDescriptionHelpFormatter,
+    description=textwrap.dedent('''\
+
+Converts EricScript output to bedpe; removes 'Unable to predict breakpoint position' entries
+
+        '''))
+group = parser.add_argument_group('required arguments')
+group.add_argument('inputfile', type=str, help='EricScript output file <N>.results.filtered.tsv')
+
+
+def parseEric(line):
+    fields = (line).split('\t')
+    geneID1 = fields[0]
+    geneID2 = fields[1]
+
+    chrom1 = fields[2]
+    end1   = fields[3]
+    if end1.startswith('Unable'):
+        return
+        #end1 = -1
+    start1 = max(-1, int(end1) -1)
+    chrom2 = fields[5]
+    end2 = fields[6]
+    if end2.startswith('Unable'):
+        return
+        #end2 = -1
+    start2   = max(int(end2) -1, -1)
+    feature= ('-').join(fields[8:10])
+    score  = round(float(fields[-1]),2)	# ericScore
+    strand1= fields[4] 
+    strand2= fields[7]
+
+    print ('\t').join(str(i) for i in [chrom1, str(start1), end1, chrom2, start2, str(end2), feature, score, strand1, strand2])
+
+if len(sys.argv)==1:
+    parser.print_help()
+    sys.exit(1)
+args = parser.parse_args()
+
+# Main
+scores = dict()
+with open(args.inputfile,'r') as f:
+    for line in f:
+        if line.startswith('GeneName1'):
+            continue
+        line = line.strip()
+        parseEric(line)
+
